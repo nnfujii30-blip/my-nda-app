@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NDA結んどこか</title>
+    <!-- CSSの読み込み -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,6 +19,7 @@
 <body class="bg-gradient-to-br from-indigo-50 via-white to-pink-50 text-slate-900 min-h-screen">
     <div id="root"></div>
 
+    <!-- 必要なライブラリをブラウザで動くように設定 -->
     <script type="importmap">
     {
       "imports": {
@@ -41,9 +43,9 @@
         } from 'lucide-react';
         import { initializeApp } from 'firebase/app';
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-        import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc, updateDoc } from 'firebase/firestore';
+        import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc, updateDoc, query } from 'firebase/firestore';
 
-        // --- あなたのFirebase設定 ---
+        // --- あなたのFirebase設定（これをそのまま使います） ---
         const firebaseConfig = {
             apiKey: "AIzaSyCAgZM1wpTHjRd5yb9NUU3eYFYtZkxWhM8",
             authDomain: "my-nda-app.firebaseapp.com",
@@ -57,7 +59,8 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appIdPrefix = 'remote-nda-app';
+        // ルール1に従ったパス設定
+        const appId = 'remote-nda-app'; 
 
         const SCOPE_OPTIONS = [
             { id: 'business', label: '事業内容', color: 'bg-pink-100 text-pink-600 border-pink-200' },
@@ -107,8 +110,8 @@
 
             const getPoint = (e) => {
                 const rect = canvasRef.current.getBoundingClientRect();
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                const clientX = (e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX);
+                const clientY = (e.touches && e.touches[0] ? e.touches[0].clientY : e.clientY);
                 return { x: clientX - rect.left, y: clientY - rect.top };
             };
 
@@ -197,18 +200,18 @@
 
             useEffect(() => {
                 if (!user) return;
-                const q = collection(db, 'artifacts', appIdPrefix, 'public', 'data', 'ndas');
-                return onSnapshot(q, (s) => {
+                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'ndas');
+                return onSnapshot(colRef, (s) => {
                     setNdas(s.docs.map(d => ({ id: d.id, ...d.data() })));
-                });
+                }, (err) => console.error("Firestore error:", err));
             }, [user]);
 
             useEffect(() => {
                 if (!user || !currentNdaId) return;
-                const ref = doc(db, 'artifacts', appIdPrefix, 'public', 'data', 'ndas', currentNdaId);
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'ndas', currentNdaId);
                 return onSnapshot(ref, (s) => {
                     if (s.exists()) setFormData(prev => ({ ...prev, ...s.data() }));
-                });
+                }, (err) => console.error("Doc error:", err));
             }, [user, currentNdaId]);
 
             const handleStartNew = () => {
@@ -230,7 +233,8 @@
                     const nextStatus = (formData.signatureA && formData.signatureB) ? 'completed' : 
                                       (formData.signatureA || formData.signatureB) ? 'partially_signed' : 'draft';
                     const payload = { ...formData, status: nextStatus, updatedAt: new Date().toISOString() };
-                    const colRef = collection(db, 'artifacts', appIdPrefix, 'public', 'data', 'ndas');
+                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'ndas');
+                    
                     if (currentNdaId) {
                         await updateDoc(doc(colRef, currentNdaId), payload);
                     } else {
@@ -248,7 +252,7 @@
                 if (!searchId.trim() || !user) return;
                 setLoading(true);
                 try {
-                    const ref = doc(db, 'artifacts', appIdPrefix, 'public', 'data', 'ndas', searchId.trim());
+                    const ref = doc(db, 'artifacts', appId, 'public', 'data', 'ndas', searchId.trim());
                     const s = await getDoc(ref);
                     if (s.exists()) {
                         setCurrentNdaId(searchId.trim());
@@ -262,18 +266,13 @@
 
             const copyId = () => {
                 if (!currentNdaId) return;
-                navigator.clipboard.writeText(currentNdaId).then(() => {
-                    setCopyFeedback(true);
-                    setTimeout(() => setCopyFeedback(false), 2000);
-                }).catch(() => {
-                    const t = document.createElement("textarea");
-                    t.value = currentNdaId;
-                    document.body.appendChild(t); t.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(t);
-                    setCopyFeedback(true);
-                    setTimeout(() => setCopyFeedback(false), 2000);
-                });
+                const t = document.createElement("textarea");
+                t.value = currentNdaId;
+                document.body.appendChild(t); t.select();
+                document.execCommand('copy');
+                document.body.removeChild(t);
+                setCopyFeedback(true);
+                setTimeout(() => setCopyFeedback(false), 2000);
             };
 
             const filtered = ndas.filter(n => n.createdBy === user?.uid || accessedIds.includes(n.id));
@@ -283,7 +282,7 @@
                 React.createElement('header', { className: 'flex flex-col md:flex-row justify-between items-center mb-10 bg-white/70 backdrop-blur-md p-6 rounded-[2.5rem] shadow-xl border border-white gap-4' },
                     React.createElement('div', { onClick: () => setView('home'), className: 'cursor-pointer group flex flex-col items-center md:items-start' },
                         React.createElement('div', { className: 'flex items-center gap-3' },
-                            React.createElement('div', { className: 'bg-indigo-600 p-2 rounded-2xl group-hover:rotate-12 transition-all' }, React.createElement(FileText, { className: 'text-white' })),
+                            React.createElement('div', { className: 'bg-indigo-600 p-2 rounded-2xl group-hover:rotate-12 transition-all shadow-lg' }, React.createElement(FileText, { className: 'text-white' })),
                             React.createElement('h1', { className: 'text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-pink-500' }, 'NDA結んどこか')
                         ),
                         React.createElement('div', { className: 'flex items-center gap-1.5 mt-2 bg-slate-50 px-3 py-1 rounded-full text-[10px] font-black text-slate-400' },
@@ -298,12 +297,12 @@
                 ),
 
                 view === 'home' ? React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto' },
-                    React.createElement('div', { className: 'bg-white p-10 rounded-[3rem] shadow-xl border border-slate-50 text-center flex flex-col items-center gap-6' },
+                    React.createElement('div', { className: 'bg-white p-10 rounded-[3rem] shadow-xl border border-slate-50 text-center flex flex-col items-center gap-6 hover:-translate-y-1 transition-all' },
                         React.createElement('div', { className: 'w-20 h-20 bg-indigo-500 rounded-[2rem] flex items-center justify-center text-white shadow-lg' }, React.createElement(Sparkles, { size: 40 })),
                         React.createElement('div', null, React.createElement('h2', { className: 'text-xl font-black mb-2' }, '新しく結ぶ'), React.createElement('p', { className: 'text-xs text-slate-400' }, '秒でNDAを作成しちゃうよ✨')),
                         React.createElement('button', { onClick: handleStartNew, className: 'w-full bg-indigo-600 text-white font-black py-4 rounded-[2rem] shadow-lg hover:bg-indigo-700 transition-all' }, '作成スタート！')
                     ),
-                    React.createElement('div', { className: 'bg-white p-10 rounded-[3rem] shadow-xl border border-slate-50 text-center flex flex-col items-center gap-6' },
+                    React.createElement('div', { className: 'bg-white p-10 rounded-[3rem] shadow-xl border border-slate-50 text-center flex flex-col items-center gap-6 hover:-translate-y-1 transition-all' },
                         React.createElement('div', { className: 'w-20 h-20 bg-pink-500 rounded-[2rem] flex items-center justify-center text-white shadow-lg' }, React.createElement(Search, { size: 40 })),
                         React.createElement('div', null, React.createElement('h2', { className: 'text-xl font-black mb-2' }, 'IDで参加'), React.createElement('p', { className: 'text-xs text-slate-400' }, '教えてもらったIDで署名するよ🤝')),
                         React.createElement('div', { className: 'w-full flex gap-2 p-2 bg-slate-50 rounded-[2rem] border border-slate-100' },
@@ -321,10 +320,10 @@
                                 React.createElement('button', { onClick: copyId, className: 'bg-white text-indigo-600 p-2 rounded-xl hover:scale-110 transition-all' }, copyFeedback ? React.createElement(CheckCircle, { size: 16 }) : React.createElement(Copy, { size: 16 }))
                             ),
                             React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
-                                React.createElement('input', { disabled: formData.status === 'completed', placeholder: '甲（あなた）', className: 'px-5 py-3 bg-slate-50 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-indigo-400 focus:bg-white transition-all', value: formData.partyA, onChange: e => setFormData({...formData, partyA: e.target.value}) }),
-                                React.createElement('input', { disabled: formData.status === 'completed', placeholder: '乙（お相手）', className: 'px-5 py-3 bg-slate-50 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-indigo-400 focus:bg-white transition-all', value: formData.partyB, onChange: e => setFormData({...formData, partyB: e.target.value}) })
+                                React.createElement('input', { disabled: formData.status === 'completed', placeholder: '甲（あなた）', className: 'px-5 py-3 bg-slate-50 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-indigo-400 transition-all', value: formData.partyA, onChange: e => setFormData({...formData, partyA: e.target.value}) }),
+                                React.createElement('input', { disabled: formData.status === 'completed', placeholder: '乙（お相手）', className: 'px-5 py-3 bg-slate-50 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-indigo-400 transition-all', value: formData.partyB, onChange: e => setFormData({...formData, partyB: e.target.value}) })
                             ),
-                            React.createElement('input', { disabled: formData.status === 'completed', placeholder: '目的（例：相談、コラボ）', className: 'w-full px-5 py-3 bg-slate-50 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-indigo-400 focus:bg-white transition-all', value: formData.purpose, onChange: e => setFormData({...formData, purpose: e.target.value}) }),
+                            React.createElement('input', { disabled: formData.status === 'completed', placeholder: '目的（例：相談、コラボ）', className: 'w-full px-5 py-3 bg-slate-50 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-indigo-400 transition-all', value: formData.purpose, onChange: e => setFormData({...formData, purpose: e.target.value}) }),
                             React.createElement('div', { className: 'grid grid-cols-3 gap-2' }, SCOPE_OPTIONS.map(o => React.createElement('button', {
                                 key: o.id, onClick: () => setFormData({...formData, scope: {...formData.scope, [o.id]: !formData.scope?.[o.id]}}),
                                 className: `py-2 rounded-xl border-2 text-[10px] font-black transition-all ${formData.scope?.[o.id] ? `${o.color} border-current shadow-sm` : 'bg-white border-slate-100 text-slate-400'}`
@@ -336,7 +335,7 @@
                                 React.createElement(SignaturePad, { label: '甲のサイン', accentColor: 'indigo', existingSignature: formData.signatureA, onSave: s => setFormData({...formData, signatureA: s}), disabled: formData.status === 'completed' }),
                                 React.createElement(SignaturePad, { label: '乙のサイン', accentColor: 'pink', existingSignature: formData.signatureB, onSave: s => setFormData({...formData, signatureB: s}), disabled: formData.status === 'completed' })
                             ),
-                            React.createElement('button', { onClick: handleSave, disabled: loading || formData.status === 'completed', className: 'w-full bg-gradient-to-r from-indigo-600 to-pink-500 text-white font-black py-4 rounded-[2rem] shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50' }, 
+                            React.createElement('button', { onClick: handleSave, disabled: loading || formData.status === 'completed', className: 'w-full bg-gradient-to-r from-indigo-600 to-pink-500 text-white font-black py-4 rounded-[2rem] shadow-lg hover:scale-[1.02] active:scale-95 transition-all' }, 
                                 formData.status === 'completed' ? '締結済み！🎉' : (currentNdaId ? '更新して保存 🚀' : '確定してID発行 🌟'))
                         )
                     ),
@@ -351,22 +350,22 @@
                 React.createElement('div', { className: 'max-w-4xl mx-auto space-y-6' },
                     React.createElement('h2', { className: 'text-3xl font-black text-center mb-8' }, '過去に結んだやつ'),
                     filtered.length === 0 ? React.createElement('div', { className: 'bg-white p-12 rounded-[3rem] text-center shadow-md' }, React.createElement('p', { className: 'text-slate-300 font-bold' }, 'まだ履歴がないよ✨')) :
-                    filtered.slice().reverse().map(n => React.createElement('div', { 
+                    [...filtered].reverse().map(n => React.createElement('div', { 
                         key: n.id, onClick: () => { setCurrentNdaId(n.id); setFormData(n); setView('edit'); },
-                        className: 'bg-white p-6 rounded-[2rem] shadow-md flex justify-between items-center cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all border border-slate-50'
+                        className: 'bg-white p-6 rounded-[2rem] shadow-md flex justify-between items-center cursor-pointer hover:shadow-xl transition-all border border-slate-50'
                     }, 
                         React.createElement('div', { className: 'flex items-center gap-4' },
-                            React.createElement('div', { className: `w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${n.status === 'completed' ? 'bg-emerald-100 text-emerald-500' : 'bg-amber-100 text-amber-500'}` }, React.createElement(FileText)),
-                            React.createElement('div', null, React.createElement('h3', { className: 'font-black text-sm text-slate-700' }, `${n.partyA || "?"} & ${n.partyB || "?"}`), React.createElement('p', { className: 'text-[10px] text-slate-400 font-bold uppercase tracking-wider' }, n.purpose))),
+                            React.createElement('div', { className: `w-12 h-12 rounded-2xl flex items-center justify-center ${n.status === 'completed' ? 'bg-emerald-100 text-emerald-500' : 'bg-amber-100 text-amber-500'}` }, React.createElement(FileText)),
+                            React.createElement('div', null, React.createElement('h3', { className: 'font-black text-sm' }, `${n.partyA || "?"} & ${n.partyB || "?"}`), React.createElement('p', { className: 'text-[10px] text-slate-400 font-bold' }, n.purpose))),
                         React.createElement(ChevronRight, { size: 20, className: 'text-slate-300' })
                     ))
                 ),
 
                 showCreatedSuccess && React.createElement('div', { className: 'fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/60 backdrop-blur-xl animate-in fade-in duration-300' },
                     React.createElement('div', { className: 'bg-white p-10 rounded-[3rem] shadow-2xl text-center max-w-sm w-full space-y-6 animate-in zoom-in-95' },
-                        React.createElement('div', { className: 'w-16 h-16 bg-indigo-600 rounded-2xl mx-auto flex items-center justify-center text-white shadow-xl' }, React.createElement(Send)),
+                        React.createElement('div', { className: 'w-16 h-16 bg-indigo-600 rounded-2xl mx-auto flex items-center justify-center text-white shadow-xl shadow-indigo-200' }, React.createElement(Send)),
                         React.createElement('div', null, React.createElement('h3', { className: 'text-2xl font-black' }, '作成完了！🎉'), React.createElement('p', { className: 'text-xs text-slate-400 font-bold' }, 'IDをコピーしてお相手にシェアしてね')),
-                        React.createElement('div', { className: 'bg-slate-50 p-4 rounded-xl flex justify-between items-center text-xs font-mono border border-slate-100' }, React.createElement('span', { className: 'truncate mr-2' }, currentNdaId), React.createElement('button', { onClick: copyId, className: 'text-indigo-600 font-black' }, copyFeedback ? 'OK!' : 'COPY')),
+                        React.createElement('div', { className: 'bg-slate-50 p-4 rounded-xl flex justify-between items-center text-xs font-mono border border-slate-100' }, React.createElement('span', { className: 'truncate mr-2' }, currentNdaId), React.createElement('button', { onClick: copyId, className: 'text-indigo-600 font-bold' }, copyFeedback ? 'OK!' : 'COPY')),
                         React.createElement('button', { onClick: () => { setShowCreatedSuccess(false); setView('home'); }, className: 'w-full bg-indigo-600 text-white font-black py-4 rounded-[2rem] shadow-lg hover:bg-indigo-700 transition-all' }, 'ホームに戻る')
                     )
                 ),
