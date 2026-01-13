@@ -35,7 +35,7 @@
     <script type="text/babel">
         const { useState, useRef, useEffect } = React;
 
-        // --- 独自アイコンコンポーネント (外部ライブラリ不要) ---
+        // --- 独自アイコンコンポーネント (エラー回避のためグループ化タグを追加) ---
         const Icon = ({ name, size = 24, className = "" }) => {
             const paths = {
                 FileText: <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2zM14 2v6h6M8 18h8M8 14h8M8 10h4" />,
@@ -47,9 +47,9 @@
                 Send: <path d="m22 2-7 20-4-9-9-4 20-7zM22 2l-11 11" />,
                 ChevronRight: <path d="m9 18 6-6-6-6" />,
                 Zap: <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />,
-                // 修正箇所: 複数の要素をフラグメントで囲む
-                Search: <React.Fragment><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></React.Fragment>,
-                Copy: <React.Fragment><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></React.Fragment>
+                // グループタグ <g> で囲むことで隣接JSX要素エラーを回避
+                Search: <g><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></g>,
+                Copy: <g><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></g>
             };
 
             return (
@@ -193,10 +193,8 @@
             const [currentNdaId, setCurrentNdaId] = useState(null);
             const [searchId, setSearchId] = useState('');
             const [accessedIds, setAccessedIds] = useState(() => {
-                try {
-                    const s = localStorage.getItem('nda_accessed_ids');
-                    return s ? JSON.parse(s) : [];
-                } catch (e) { return []; }
+                const s = localStorage.getItem('nda_accessed_ids');
+                return s ? JSON.parse(s) : [];
             });
             const [formData, setFormData] = useState({
                 partyA: '', partyB: '', purpose: '', 
@@ -324,7 +322,7 @@
                             </div>
                         </div>
                         <nav className="flex gap-2 bg-slate-100/50 p-1.5 rounded-3xl">
-                            <button onClick={() => setView('home')} className={`px-6 py-2 rounded-2xl text-sm font-bold transition-all ${view === 'home' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>ホーム</button>
+                            <button onClick={() => setView('home')} className={`px-6 py-2 rounded-2xl text-sm font-bold transition-all ${view === 'home' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-50'}`}>ホーム</button>
                             <button onClick={() => setView('history')} className={`px-6 py-2 rounded-2xl text-sm font-bold transition-all ${view === 'history' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>履歴 ({filtered.length})</button>
                         </nav>
                     </header>
@@ -339,9 +337,9 @@
                             <div className="bg-white p-10 rounded-[3rem] shadow-xl text-center flex flex-col items-center gap-6">
                                 <div className="w-20 h-20 bg-pink-500 rounded-[2rem] flex items-center justify-center text-white shadow-lg"><Icon name="Search" size={40} /></div>
                                 <h2 className="text-xl font-black">IDで参加</h2>
-                                <div className="w-full flex gap-2 p-2 bg-slate-50 rounded-[2rem] border border-slate-100">
+                                <div className="w-full flex gap-2 p-2 bg-slate-50 rounded-[2rem] border border-slate-100 focus-within:border-indigo-400">
                                     <input type="text" placeholder="IDを入力..." className="flex-grow bg-transparent px-4 py-2 font-bold outline-none text-sm" value={searchId} onChange={e => setSearchId(e.target.value)} />
-                                    <button onClick={handleSearch} className="bg-slate-900 text-white px-6 rounded-[1.5rem] font-bold text-sm hover:bg-black">GO!</button>
+                                    <button onClick={handleSearch} className="bg-slate-900 text-white px-6 rounded-[1.5rem] font-bold text-sm hover:bg-black transition-all">GO!</button>
                                 </div>
                             </div>
                         </div>
@@ -362,10 +360,10 @@
                                         </div>
                                     )}
                                     <div className="grid grid-cols-2 gap-4">
-                                        <input disabled={formData.status === 'completed'} placeholder="甲（あなた）" className="px-5 py-3 bg-slate-50 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-400 outline-none" value={formData.partyA} onChange={e => setFormData({...formData, partyA: e.target.value})} />
-                                        <input disabled={formData.status === 'completed'} placeholder="乙（お相手）" className="px-5 py-3 bg-slate-50 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-400 outline-none" value={formData.partyB} onChange={e => setFormData({...formData, partyB: e.target.value})} />
+                                        <input disabled={formData.status === 'completed'} placeholder="甲（あなた）" className="px-5 py-3 bg-slate-50 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-400 outline-none transition-all" value={formData.partyA} onChange={e => setFormData({...formData, partyA: e.target.value})} />
+                                        <input disabled={formData.status === 'completed'} placeholder="乙（お相手）" className="px-5 py-3 bg-slate-50 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-400 outline-none transition-all" value={formData.partyB} onChange={e => setFormData({...formData, partyB: e.target.value})} />
                                     </div>
-                                    <input disabled={formData.status === 'completed'} placeholder="契約の目的" className="w-full px-5 py-3 bg-slate-50 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-400 outline-none" value={formData.purpose} onChange={e => setFormData({...formData, purpose: e.target.value})} />
+                                    <input disabled={formData.status === 'completed'} placeholder="契約の目的" className="w-full px-5 py-3 bg-slate-50 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-400 outline-none transition-all" value={formData.purpose} onChange={e => setFormData({...formData, purpose: e.target.value})} />
                                     <div className="grid grid-cols-3 gap-2">
                                         {SCOPE_OPTIONS.map(o => (
                                             <button key={o.id} onClick={() => setFormData({...formData, scope: {...formData.scope, [o.id]: !formData.scope?.[o.id]}})} className={`py-2 rounded-xl border-2 text-[10px] font-black transition-all ${formData.scope?.[o.id] ? `${o.color} border-current shadow-sm` : 'bg-white border-slate-100 text-slate-400'}`}>{o.label}</button>
@@ -409,7 +407,7 @@
                                 filtered.slice().reverse().map(n => (
                                     <div key={n.id} onClick={() => { setCurrentNdaId(n.id); setFormData(n); setView('edit'); }} className="bg-white p-6 rounded-[2rem] shadow-md flex justify-between items-center cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all border border-slate-50">
                                         <div className="flex items-center gap-4">
-                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${n.status === 'completed' ? 'bg-emerald-100 text-emerald-50' : 'bg-amber-100 text-amber-500'}`}><Icon name="FileText" /></div>
+                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${n.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-500'}`}><Icon name="FileText" /></div>
                                             <div>
                                                 <h3 className="font-black text-sm text-slate-700">{n.partyA || "?"} & {n.partyB || "?"}</h3>
                                                 <p className="text-[10px] text-slate-400 font-bold uppercase">{n.purpose}</p>
@@ -425,7 +423,8 @@
             );
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
+        const container = document.getElementById('root');
+        const root = ReactDOM.createRoot(container);
         root.render(<App />);
     </script>
 </body>
